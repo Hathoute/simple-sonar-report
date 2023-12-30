@@ -13,10 +13,12 @@ public class Main {
 
     var report = formatter.generateReport();
     try {
-      saveReport(report, config.getOutput());
+      saveReport(report.right(), config.getOutput());
     } catch (IOException e) {
       throw new IllegalStateException("Exception raised while saving report to file", e);
     }
+
+    System.exit(report.left() ? 0 : 1);
   }
 
   private static void saveReport(String report, String path) throws IOException {

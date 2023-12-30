@@ -11,9 +11,11 @@ public class ArgumentParserUtil {
   private static final String APP_DESCRIPTION = "Generate a Markdown report for a project analysis";
 
   public static final String PROJECT_KEY_ARG_NAME = "projectkey";
+  public static final String PULL_REQUEST_ARG_NAME = "pullrequest";
   public static final String URL_ARG_NAME = "url";
   public static final String TOKEN_ARG_NAME = "token";
   public static final String OUTPUT_ARG_NAME = "output";
+  public static final String TEMPLATE_ARG_NAME = "template";
 
   private static ArgumentParser newParser() {
     var parser = ArgumentParsers.newFor(APP_NAME).build()
@@ -23,6 +25,11 @@ public class ArgumentParserUtil {
     parser.addArgument("-p", "--" + PROJECT_KEY_ARG_NAME)
         .help("The sonarqube project key")
         .required(true);
+
+    parser.addArgument("--" + PULL_REQUEST_ARG_NAME)
+        .help("Pull request to scan, keep empty for a global report")
+        .setDefault("")
+        .required(false);
 
     parser.addArgument("-u", "--" + URL_ARG_NAME)
         .help("The sonarqube instance host url")
@@ -35,6 +42,12 @@ public class ArgumentParserUtil {
     parser.addArgument("-o", "--" + OUTPUT_ARG_NAME)
         .help("Formatted markdown output")
         .setDefault("./report-out.md")
+        .required(false);
+
+    parser.addArgument("--" + TEMPLATE_ARG_NAME)
+        .help("Template type")
+        .choices("github-small")
+        .setDefault("github-small")
         .required(false);
 
     return parser;

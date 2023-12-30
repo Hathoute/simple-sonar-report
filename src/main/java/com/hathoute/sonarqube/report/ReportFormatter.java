@@ -9,15 +9,20 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.hathoute.sonarqube.report.ReportFormatter.MetricDefinition.of;
 import static java.util.function.Function.identity;
 
 public class ReportFormatter {
 
-  private static final String DEFAULT_TEMPLATE = "template1";
+  private static final List<MetricDefinition> METRICS = List.of(
+      of("lines"), of("bugs"), of("coverage"), of("code_smells"), of("duplicated_lines_density"), of("new_maintainability_rating", false),
+      of("new_reliability_rating", false), of("vulnerabilities")
+  );
 
   private final SonarqubeConfig config;
   private final SonarqubeAPIClient client;
@@ -38,18 +43,22 @@ public class ReportFormatter {
     templateEngine.addTemplateResolver(templateResolver);
   }
 
-  public String generateReport() {
+  public Pair<Boolean, String> generateReport() {
     var projectKey = config.getProjectKey();
-    var measuresWithMetrics = client.getComponentMeasures(projectKey);
+    var isPullRequest = !config.getPullRequest().isBlank();
+    var metricsToInclude = fromMetrics(METRICS, isPullRequest);
+    var measuresWithMetrics = client.getComponentMeasures(projectKey, config.getPullRequest(), metricsToInclude);
     var status = client.getProjectStatus(projectKey);
-    var templateMetrics = buildTemplateMetrics(measuresWithMetrics);
+    var templateMetrics = buildTemplateMetrics(measuresWithMetrics, METRICS);
 
     var context = new Context();
     addStatusVariable(status, context);
     addProjectVariables(projectKey, config.getHost(), context);
     context.setVariable("metrics", templateMetrics);
 
-    return templateEngine.process(DEFAULT_TEMPLATE, context);
+    var report = templateEngine.process(config.getTemplate(), context);
+    var passed = status.status().equals("OK");
+    return new Pair<>(passed, report);
   }
 
   private static void addStatusVariable(ProjectStatus projectStatus, Context context) {
@@ -64,21 +73,47 @@ public class ReportFormatter {
         + "dashboard?id=" + projectKey);
   }
 
-  private static List<TemplateMetric> buildTemplateMetrics(ComponentWithMetrics measuresWithMetrics) {
+  private static List<TemplateMetric> buildTemplateMetrics(ComponentWithMetrics measuresWithMetrics, List<MetricDefinition> metricsToInclude) {
     var componentMeasures = measuresWithMetrics.component();
-    var metrics = measuresWithMetrics.metrics().stream()
-        .collect(Collectors.toMap(Metric::key, identity()));
-
-    return componentMeasures.measures()
+    var metricMap = measuresWithMetrics.metrics()
         .stream()
-        .map(m -> TemplateMetric.of(metrics.get(m.metric()), m))
-        .sorted(Comparator.comparingInt(m -> SonarqubeAPIClient.INCLUDED_METRICS.indexOf(m.key)))
+        .collect(Collectors.toMap(Metric::key, identity()));
+    var measureMap = componentMeasures.measures()
+        .stream()
+        .collect(Collectors.toMap(Measure::metric, identity()));
+
+    return metricsToInclude.stream()
+        .filter(md -> measureMap.containsKey(md.key))
+        .map(md -> TemplateMetric.of(metricMap.get(md.key), measureMap.get(md.key), measureMap.get("new_" + md.key)))
         .toList();
   }
 
-  record TemplateMetric(String key, String name, String description, String value) {
-    static TemplateMetric of(Metric metric, Measure measure) {
-      return new TemplateMetric(metric.key(), metric.name(), metric.description(), measure.value());
+  private static List<String> fromMetrics(List<MetricDefinition> metrics, boolean isPullRequest) {
+    if (isPullRequest) {
+      return metrics.stream().flatMap(MetricDefinition::keys).toList();
+    }
+
+    return metrics.stream().map(MetricDefinition::key).toList();
+  }
+
+  record MetricDefinition(String key, boolean canBeNew) {
+    static MetricDefinition of(String key, boolean canBeNew) {
+      return new MetricDefinition(key, canBeNew);
+    }
+
+    static MetricDefinition of(String key) {
+      return of(key, true);
+    }
+
+    Stream<String> keys() {
+      return canBeNew ? Stream.of(key, "new_" + key) : Stream.of(key);
+    }
+  }
+
+  record TemplateMetric(String key, String name, String description, String value, Optional<String> newValue) {
+    static TemplateMetric of(Metric metric, Measure measure, Measure newValue) {
+      return new TemplateMetric(metric.key(), metric.name(), metric.description(), measure.value(), Optional.ofNullable(newValue)
+          .map(Measure::value));
     }
   }
 }

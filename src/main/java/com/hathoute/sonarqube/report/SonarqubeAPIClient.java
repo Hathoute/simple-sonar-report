@@ -15,8 +15,6 @@ import java.time.Duration;
 import java.util.List;
 
 public class SonarqubeAPIClient {
-  public static final List<String> INCLUDED_METRICS = List.of("lines", "bugs", "coverage", "code_smells", "duplicated_blocks", "security_hotspots", "reliability_rating");
-
   private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -30,8 +28,11 @@ public class SonarqubeAPIClient {
     this.userToken = userToken;
   }
 
-  public ComponentWithMetrics getComponentMeasures(String projectKey) {
-    var url = "api/measures/component?additionalFields=period%2Cmetrics&component=" + projectKey + "&metricKeys=" + String.join("%2C", INCLUDED_METRICS);
+  public ComponentWithMetrics getComponentMeasures(String projectKey, String pullRequestId, List<String> metrics) {
+    var url = "api/measures/component?additionalFields=period%2Cmetrics&component=" + projectKey + "&metricKeys=" + String.join("%2C", metrics);
+    if (!pullRequestId.isBlank()) {
+      url += "&pullRequest=" + pullRequestId;
+    }
     return get(url, ComponentWithMetrics.class);
   }
 
@@ -51,6 +52,9 @@ public class SonarqubeAPIClient {
     try {
       var response = HttpClient.newHttpClient()
           .send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() != 200) {
+        throw new IllegalStateException("Received status code %d: %s".formatted(response.statusCode(), response.body()));
+      }
       return OBJECT_MAPPER.readValue(response.body(), responseClass);
     } catch (IOException e) {
       throw new IllegalStateException("Exception when sending HTTP Request", e);

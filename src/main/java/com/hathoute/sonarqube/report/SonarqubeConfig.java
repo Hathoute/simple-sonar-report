@@ -33,6 +33,14 @@ public class SonarqubeConfig {
     return getValue(OUTPUT_ARG_NAME);
   }
 
+  public String getTemplate() {
+    return getValue(TEMPLATE_ARG_NAME);
+  }
+
+  public String getPullRequest() {
+    return getValue(PULL_REQUEST_ARG_NAME);
+  }
+
   private String getValue(String key) {
     var value = cachedValues.computeIfAbsent(key, valueProvider);
     if (isNull(value)) {
