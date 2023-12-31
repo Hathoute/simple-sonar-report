@@ -28,9 +28,9 @@ public class ReportFormatter {
   private final SonarqubeAPIClient client;
   private final TemplateEngine templateEngine;
 
-  public ReportFormatter(SonarqubeConfig config) {
+  public ReportFormatter(SonarqubeConfig config, SonarqubeAPIClient client) {
     this.config = config;
-    this.client = new SonarqubeAPIClient(config.getHost(), config.getToken());
+    this.client = client;
 
     var templateResolver = new ClassLoaderTemplateResolver();
     templateResolver.setPrefix("/templates/");
@@ -53,7 +53,7 @@ public class ReportFormatter {
 
     var context = new Context();
     addStatusVariable(status, context);
-    addProjectVariables(projectKey, config.getHost(), context);
+    addProjectVariables(config, context);
     context.setVariable("metrics", templateMetrics);
 
     var report = templateEngine.process(config.getTemplate(), context);
@@ -63,14 +63,18 @@ public class ReportFormatter {
 
   private static void addStatusVariable(ProjectStatus projectStatus, Context context) {
     var passed = projectStatus.status().equals("OK");
-    context.setVariable("gate_status_color", passed ? "green" : "red");
+    context.setVariable("gate_status_bool", passed);
     context.setVariable("gate_status", projectStatus.status());
   }
 
-  private static void addProjectVariables(String projectKey, String hostUrl, Context context) {
+  private static void addProjectVariables(SonarqubeConfig config, Context context) {
+    var projectKey = config.getProjectKey();
+    var hostUrl = config.getHost();
+    var pullRequest = config.getPullRequest();
+    var projectUrl = hostUrl + (hostUrl.endsWith("/") ? "" : "/")
+        + "dashboard?id=" + projectKey + (pullRequest.isBlank() ? "" : "&pullRequest=" + pullRequest);
     context.setVariable("project_name", projectKey);
-    context.setVariable("project_dashboard_url", hostUrl + (hostUrl.endsWith("/") ? "" : "/")
-        + "dashboard?id=" + projectKey);
+    context.setVariable("project_dashboard_url", projectUrl);
   }
 
   private static List<TemplateMetric> buildTemplateMetrics(ComponentWithMetrics measuresWithMetrics, List<MetricDefinition> metricsToInclude) {

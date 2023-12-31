@@ -5,6 +5,8 @@ import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
+import java.util.function.IntConsumer;
+
 public class ArgumentParserUtil {
 
   private static final String APP_NAME = "java -jar simple-sonar-report.jar";
@@ -53,14 +55,14 @@ public class ArgumentParserUtil {
     return parser;
   }
 
-  public static Namespace parse(String[] args) {
+  public static Namespace parse(String[] args, IntConsumer exitService) {
     var parser = newParser();
     try {
       return parser.parseArgs(args);
     } catch (ArgumentParserException e) {
       parser.handleError(e);
-      System.exit(-1);
-      return null;
+      exitService.accept(-1);
+      throw new IllegalStateException();
     }
   }
 }

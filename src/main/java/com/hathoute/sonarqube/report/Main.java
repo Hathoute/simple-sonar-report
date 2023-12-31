@@ -7,9 +7,10 @@ import java.io.PrintWriter;
 
 public class Main {
   public static void main(String[] args) {
-    var arguments = ArgumentParserUtil.parse(args);
+    var arguments = ArgumentParserUtil.parse(args, System::exit);
     var config = new SonarqubeConfig(arguments::getString);
-    var formatter = new ReportFormatter(config);
+    var client = new SonarqubeAPIClient(config.getHost(), config.getToken());
+    var formatter = new ReportFormatter(config, client);
 
     var report = formatter.generateReport();
     try {
