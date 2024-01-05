@@ -26,8 +26,8 @@ public class SonarqubeAPIClient {
     this.userToken = userToken;
   }
 
-  public ComponentWithMetrics getComponentMeasures(final String projectKey, final String pullRequestId,
-      final List<String> metrics) {
+  public ComponentWithMetrics getComponentMeasures(final String projectKey,
+      final String pullRequestId, final List<String> metrics) {
     var url = "api/measures/component?additionalFields=period%2Cmetrics&component=" + projectKey
         + "&metricKeys=" + String.join("%2C", metrics);
     if (!pullRequestId.isBlank()) {
@@ -36,8 +36,11 @@ public class SonarqubeAPIClient {
     return get(url, ComponentWithMetrics.class);
   }
 
-  public ProjectStatus getProjectStatus(final String projectKey) {
-    final var url = "api/qualitygates/project_status?projectKey=" + projectKey;
+  public ProjectStatus getProjectStatus(final String projectKey, final String pullRequestId) {
+    var url = "api/qualitygates/project_status?projectKey=" + projectKey;
+    if (!pullRequestId.isBlank()) {
+      url += "&pullRequest=" + pullRequestId;
+    }
     return get(url, WrappedProjectStatus.class).projectStatus();
   }
 
@@ -50,7 +53,8 @@ public class SonarqubeAPIClient {
                                    .build();
 
     try {
-      final var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+      final var response = HttpClient.newHttpClient()
+                                     .send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "Received status code %d: %s".formatted(response.statusCode(), response.body()));

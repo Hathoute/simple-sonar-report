@@ -48,7 +48,7 @@ public class ReportFormatter {
     final var metricsToInclude = fromMetrics(METRICS, isPullRequest);
     final var measuresWithMetrics = client.getComponentMeasures(projectKey, config.getPullRequest(),
         metricsToInclude);
-    final var status = client.getProjectStatus(projectKey);
+    final var status = client.getProjectStatus(projectKey, config.getPullRequest());
     final var templateMetrics = buildTemplateMetrics(measuresWithMetrics, METRICS);
 
     final var context = new Context();
@@ -71,13 +71,15 @@ public class ReportFormatter {
     final var projectKey = config.getProjectKey();
     final var hostUrl = config.getHost();
     final var pullRequest = config.getPullRequest();
-    final var projectUrl = hostUrl + (hostUrl.endsWith("/") ? "" : "/") + "dashboard?id=" + projectKey + (
-        pullRequest.isBlank() ? "" : "&pullRequest=" + pullRequest);
+    final var projectUrl =
+        hostUrl + (hostUrl.endsWith("/") ? "" : "/") + "dashboard?id=" + projectKey + (
+            pullRequest.isBlank() ? "" : "&pullRequest=" + pullRequest);
     context.setVariable("project_name", projectKey);
     context.setVariable("project_dashboard_url", projectUrl);
   }
 
-  private static List<TemplateMetric> buildTemplateMetrics(final ComponentWithMetrics measuresWithMetrics,
+  private static List<TemplateMetric> buildTemplateMetrics(
+      final ComponentWithMetrics measuresWithMetrics,
       final List<MetricDefinition> metricsToInclude) {
     final var componentMeasures = measuresWithMetrics.component();
     final var metricMap = measuresWithMetrics.metrics()
@@ -94,7 +96,8 @@ public class ReportFormatter {
                            .toList();
   }
 
-  private static List<String> fromMetrics(final List<MetricDefinition> metrics, final boolean isPullRequest) {
+  private static List<String> fromMetrics(final List<MetricDefinition> metrics,
+      final boolean isPullRequest) {
     if (isPullRequest) {
       return metrics.stream().flatMap(MetricDefinition::keys).toList();
     }
